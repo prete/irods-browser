@@ -3,6 +3,8 @@ import { List, Icon , Spin, notification, Drawer, Tag, Breadcrumb, Badge, Modal,
 import { FixedSizeList } from 'react-window';
 import "antd/dist/antd.css";
 
+const HOST = "http://127.0.0.1:8000";
+
 const iRODS = {
   Types: {
     Collection: "iRODSCollection",
@@ -175,7 +177,7 @@ class App extends React.Component {
     let absPath = "";
     let crumbs = [{
       name: "root",
-      href: "http://127.0.0.1:8000/?path=/"
+      href: `${HOST}/?path=/`
     }]
 
     // eslint-disable-next-line
@@ -185,7 +187,7 @@ class App extends React.Component {
       absPath += `/${collection}`;
       crumbs.push({
         name: collection,
-        href: "http://127.0.0.1:8000/?path=" + absPath
+        href: `${HOST}/?path=` + absPath
       });
     }
     return (
@@ -200,7 +202,7 @@ class App extends React.Component {
   ils = path =>{
       this.setState({loading: true});
       if(!path) path = '/';
-      let url = "http://127.0.0.1:8000/irods/list?path=" + window.encodeURIComponent(path);
+      let url = `${HOST}/irods/list?path=` + window.encodeURIComponent(path);
       fetch(url)
         .then( response => response.json())
         .then( data => {
@@ -220,7 +222,7 @@ class App extends React.Component {
 
   info = item =>{
     this.setState({loading: true});
-    let url = "http://127.0.0.1:8000/irods/data-object?path=" + window.encodeURIComponent(item.path);
+    let url = `${HOST}/irods/data-object?path=` + window.encodeURIComponent(item.path);
     fetch(url)
       .then( response => response.json())
       .then( data => {
@@ -244,7 +246,7 @@ class App extends React.Component {
 
   handleLogin = (event) => {
     event.preventDefault();
-    fetch("http://127.0.0.1:8000/auth/login", {method: "POST", body: JSON.stringify({"username": this.state.login.username, "password": this.state.login.password})})
+    fetch(`${HOST}/auth/login`, {method: "POST", body: JSON.stringify({"username": this.state.login.username, "password": this.state.login.password})})
         .then( response => response.json())
         .then( data => {
           if(data.error){
@@ -276,7 +278,7 @@ class App extends React.Component {
   }
 
   handleLogout = () =>{
-    window.location = "/auth/logout";
+    window.location = `${HOST}/auth/logout`;
   }
   
   renderLoginForm() {
@@ -330,7 +332,7 @@ class App extends React.Component {
       return;
     }
     this.setState({loading:true});
-    let url = "http://127.0.0.1:8000/irods/search";
+    let url = `${HOST}/irods/search`;
     fetch(url, {method: "POST", body: this.state.search})
       .then( response => response.json())
       .then( data => {
