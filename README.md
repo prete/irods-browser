@@ -1,5 +1,5 @@
 # iRODS Browser :mag_right::open_file_folder:
-Web based iRODS browser. 
+Yet another web based iRODS browser. 
 
 # Requirements
 - python 3+
