@@ -5,18 +5,17 @@ Web based iRODS browser.
 - python 3+
 - yarn/npm
 
-## Installing python libraries
+# Installing python libraries
 - `pip install starlette`
 - `pip install uvicorn`
-
-## Installing web dependencies and build client
+# Installing web dependencies and build client
 1. `cd client`
 2. `yarn install`
-3. `npm run build`
+3. `yarn run build`
 
 # Run server
 1. `uvicorn server:app`
-2. Open web browser at 'http://127.0.0.0:8000'
+2. Open web browser at http://127.0.0.0:8000
 3. _Profit!_
 
 # Built with
