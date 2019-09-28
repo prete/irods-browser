@@ -1,13 +1,15 @@
 # iRODS Browser :mag_right::open_file_folder:
-Yet another web based iRODS browser. 
+(yet another) web based iRODS browser. 
 
 # Requirements
 - python 3+
 - yarn/npm
 
 # Installing python libraries
+- `pip install python-irodsclient`
 - `pip install starlette`
 - `pip install uvicorn`
+
 # Installing web dependencies and build client
 1. `cd client`
 2. `yarn install`
