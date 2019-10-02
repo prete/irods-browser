@@ -37,7 +37,10 @@ def manifest(request):
 @app.route('/auth/status')
 def auth_status(request):
     is_authenticated = "irods_user_name" in request.session and 'irods_password' in request.session and len(request.session["irods_user_name"])!=0 and len(request.session["irods_password"])!=0
-    return JSONResponse({"authenticated": is_authenticated})
+    response = {"authenticated": is_authenticated}
+    if is_authenticated:
+        response['username'] = request.session["irods_user_name"]
+    return JSONResponse(response)
     
 @app.route('/auth/login', methods=["POST"])
 async def login(request):
@@ -46,7 +49,7 @@ async def login(request):
         irodshelper.login({"irods_user_name": payload['username'], "irods_password": payload['password']})
         request.session["irods_user_name"] = payload['username']
         request.session["irods_password"] = payload['password']
-        return JSONResponse({"login": True})
+        return JSONResponse({"login": True, "username": request.session["irods_user_name"]})
     except:
         return JSONResponse({"error": "Invalid credentials. [{}]".format(sys.exc_info()[1])}, 403)
 
@@ -69,7 +72,6 @@ def irods_list(request):
 @app.route('/irods/data-object')
 def irods_data_object(request):
     payload = request.query_params.get("path", None)
-    print("imeta ",payload)
     #quick sanity check
     if not payload:
         return JSONResponse({"error": "Invalid or empty iRODSDataObject path."}, 400)
@@ -80,6 +82,7 @@ def irods_data_object(request):
 @app.route('/irods/search', methods=["POST"])
 async def irods_query(request):
     payload = await request.json()
+    print(payload)
     search_type = payload['type']
     print(payload)
     #study_id 2136
@@ -89,7 +92,17 @@ async def irods_query(request):
         "iRODSDataObject": irodshelper.search_data_object,
         "iRODSDataObjectMeta": irodshelper.search_data_object_metadata
     }
-    result = search[search_type](payload, request.session)
+
+    query = parse_query(payload["query"])
+    search_results = search[search_type](query, request.session)
+    print(search_results)
+
+    result = {
+        "searchType": search_type,
+        "count": len(search_results),
+        "children": search_results 
+    }
+
     return JSONResponse(result)
 
 def read_in_chunks(data_object, chunk_size=1024):
@@ -118,8 +131,18 @@ def irods_download_data_object(request):
             'Content-Disposition': 'attachment; filename="{}"'.format(payload.split("/")[-1])
         }
     )
-
 # << iRODS API
+
+# helpers >>
+def parse_query(query_string):
+    query = {}
+    for kv in query_string.split(','):
+        k,v = kv.strip().split('=')
+        k = k.strip()
+        v = v.strip()
+        query[k]=v 
+    return query
+# << helpers
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=8000)

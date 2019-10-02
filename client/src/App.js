@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Icon , Spin, notification, Drawer, Tag, Breadcrumb, Badge, Modal, Form, Input, Button} from "antd";
+import { List, Icon , Spin, notification, Drawer, Tag, Breadcrumb, Badge, Modal, Form, Input, Button, Tooltip, Select} from "antd";
 import { FixedSizeList } from 'react-window';
 import "antd/dist/antd.css";
 
@@ -76,7 +76,7 @@ class VirtualList extends React.Component {
     const item = this.props.data.children[row.index];    
     return ((item.type === iRODS.Types.Collection) ? this.renderCollection(row, item) : this.renderDataObject(row, item));
   };
-yarn
+  
   render() {
     return (
         <List 
@@ -114,6 +114,7 @@ class App extends React.Component {
         visible: false,
         working: false
       },
+      username: '',
       search: ""
     };
   }
@@ -131,7 +132,7 @@ class App extends React.Component {
       .then( response => response.json())
       .then( data => {
         if(data.authenticated){
-          this.setState({login: {working:false, visible: false}});
+          this.setState({username: data.username, login: {working:false, visible: false}});
           this.ils(this.params.path);
         }else{
           this.setState({login: {working:false, visible: true}});
@@ -167,11 +168,13 @@ class App extends React.Component {
 
   breadcrumbs = () => {
     if(this.state.searching){
-      return (<Breadcrumb separator={<Badge color={'purple'}/>}>
-        <Breadcrumb.Item><Tag color="green">iRODS (ipwd)</Tag></Breadcrumb.Item>
+      return (
+      <Breadcrumb separator={<Badge color={'purple'}/>}>
+        <Breadcrumb.Item><Tag color="green">{this.state.username}@iRODS</Tag></Breadcrumb.Item>
         <Breadcrumb.Item>Search Results</Breadcrumb.Item>
         <Breadcrumb.Item><Badge text={this.state.data.count+ ' items'} color={'cyan'}/></Breadcrumb.Item>
-      </Breadcrumb>);
+      </Breadcrumb>
+      );
     }
 
     let absPath = "";
@@ -192,7 +195,7 @@ class App extends React.Component {
     }
     return (
     <Breadcrumb separator={<Badge color={'purple'}/>}>
-      <Breadcrumb.Item><Tag color="green">iRODS (ipwd)</Tag></Breadcrumb.Item>
+      <Breadcrumb.Item><Tag color="green">{this.state.username}@iRODS</Tag></Breadcrumb.Item>
       {crumbs.map((c,i) => {
         return <Breadcrumb.Item><a href={c.href}>{c.name} {i===crumbs.length-1 ? <Badge text={this.state.data.count+ ' items'} color={'cyan'}/> : ""}</a></Breadcrumb.Item>
       })}
@@ -254,7 +257,7 @@ class App extends React.Component {
             this.notifyError(data.error)
             return;
           }
-          this.setState({login: {...this.state.login, working:false, visible:false}});
+          this.setState({username: data.username, login: {...this.state.login, working:false, visible:false}});
           this.ils(this.params.path);
       })
       .catch(error => {
@@ -323,6 +326,10 @@ class App extends React.Component {
     this.setState({search: event.target.value});
   }
 
+  handleSearchType = (event) => {
+    this.setState({searchType: event.target.value});
+  }
+
   onSearch = () =>{
     console.log("onSearch");
 
@@ -333,11 +340,23 @@ class App extends React.Component {
     }
     this.setState({loading:true});
     let url = `${HOST}/irods/search`;
-    fetch(url, {method: "POST", body: this.state.search})
+
+    let payload = {
+      query: this.state.search,
+      type: this.state.searchType || "iRODSDataObjectMeta"
+    };
+
+    console.log("payload", payload)
+
+    fetch(url, {method: "POST", body: JSON.stringify(payload)})
       .then( response => response.json())
       .then( data => {
         console.log("Search result", data);
-        this.setState({data: data, searching: true, loading: false});
+        this.setState({
+          data: data, 
+          searching: true, 
+          loading: false
+        });
        })
       .catch(e => {
         this.setState({loading: false});
@@ -345,11 +364,21 @@ class App extends React.Component {
       });
   }
 
+  serachTypeSelect = (
+    <Select id="searchType" defaultValue="iRODSDataObjectMeta" style={{ width: "120px" }} size="small"  onChange={this.handleSearchType}>
+      <Select.Option value="iRODSDataObjectMeta">metadata</Select.Option>
+      <Select.Option value="iRODSDataObject">file name</Select.Option>
+      <Select.Option value="iRODSCollcetionMeta">collection metadata</Select.Option>
+    </Select>
+  );
+
   render() {
     return (
       <Spin spinning={this.state.loading} delay={100}>
         {this.breadcrumbs()}
-        <Input key="input-search" id="json" type="text" value={this.state.search} onChange={this.handleSearch}></Input>
+        <Tooltip placement="bottom" title="Input comma separated key=value pairs to search for">
+          <Input addonBefore={this.serachTypeSelect} key="input-search" placeholder="study_id=12345,sample_id=69, type=bam" id="query" type="text" value={this.state.search} onChange={this.handleSearch}></Input>
+        </Tooltip>
         <Button key="search-button" size="small" icon="search" onClick={this.onSearch}>Search</Button>  
         <Button key="logout-button" icon="poweroff" size="small" onClick={this.handleLogout} visible={!this.state.login.visible}>Logout</Button>  
         <VirtualList data={this.state.data} searching={this.state.searching} download={this.handleDownload} onItemClick={this.onItemClick.bind(this)}/>

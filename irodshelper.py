@@ -16,7 +16,8 @@ def new_session(config = {}):
     irods_zone_name = config.get('irods_zone_name', os.environ['irods_zone_name'])
     irods_user_name = config.get('irods_user_name', os.environ['irods_user_name'])
     irods_password = config.get('irods_password', os.environ['irods_password'])
-    return iRODSSession(host=irods_host, port=irods_port, user=irods_user_name, password=irods_password, zone=irods_zone_name)
+    print("new session for", irods_user_name)
+    return iRODSSession(host=irods_host, port=irods_port, user=irods_user_name, password=irods_password, zone=irods_zone_name, client_zone='/seq', )
 
 def login(config):
     with new_session(config) as session:
@@ -61,7 +62,7 @@ def serialize_collection(collection):
         "count": len(children),
         "children": children,
         "metadata": [{"name" : m.name, "value" : m.value, "units": m.units} for m in collection.metadata.items()]
-        }
+    }
 
 def parse_path(path: str):
     collection_path = "/".join(path.split("/")[:-1])
@@ -94,15 +95,19 @@ def get_serialized_data_object(path, config={}):
 
 def search_data_object(q, config={}):
     print("Search::DataObject", q)
-    with new_session(config) as session:    
-        query = session.query(DataObject).filter(Like(DataObject.name, '%{}%'.format(q['value'])))
+    with new_session(config) as session:
+        query = session.query(DataObject, Collection.name) \
+            .filter(Like(DataObject.path, "/irods-seq-sr%")) \
+            .filter(Criterion('=', DataObject.name, '%{}%'.format(q['value']))) \
+            .add_keyword('zone', 'seq')
+
         results = [{
             "type": iRODSDataObject,
             "id": result[DataObject.id],
             "name": result[DataObject.name],
             "size": sizeof_fmt(result[DataObject.size]),
             "modified": result[DataObject.modify_time].isoformat(),
-            "path": result[DataObject.path]
+            "path": "{}/{}".format(result[Collection.name], result[DataObject.name])
         } for result in query]
         
         return {
@@ -114,24 +119,32 @@ def search_data_object(q, config={}):
 
 def search_data_object_metadata(q, config={}):
     print("Search::DataObjectMeta", q)
-    with new_session(config) as session:    
-        query = session.query(DataObject, DataObjectMeta).filter(Criterion('=', DataObjectMeta.name, q['name'])).filter(Like(DataObjectMeta.value, q['value']))
-        #query = session.query(DataObject, DataObjectMeta).filter(Criterion('=', DataObjectMeta.name, q['name'])).filter(Like(DataObjectMeta.value, '%{}%'.format(q['value'])))
+    with new_session(config) as session:
+        query = session.query(DataObject, Collection.name) \
+            .filter(Like(DataObject.path, "/irods-seq-sr%")) \
+            .add_keyword('zone', 'seq')
+
+        print("Searching for", q)
+
+        for k in q:
+           query = query.filter(Criterion('=', DataObjectMeta.name, k)) \
+                .filter(Criterion('=', DataObjectMeta.value, q[k]))
+
         return [{
             "type": iRODSDataObject,
             "id": result[DataObject.id],
             "name": result[DataObject.name],
             "size": sizeof_fmt(result[DataObject.size]),
             "modified": result[DataObject.modify_time].isoformat(),
-            "path": result[DataObject.path]
+            "path": "{}/{}".format(result[Collection.name], result[DataObject.name])
         } for result in query]
 
 def search_collection(q, config={}):
     print("Search::Collection", q)
     with new_session(config) as session:
-        query = session.query(Collection, CollectionMeta).filter(Like(Collection.name, '%{}%'.format(q['value'])))
-        for q in query:
-            print(q)
+        query = session.query(Collection, CollectionMeta) \
+            .filter(Like(Collection.name, '%{}%'.format(q['value']))) \
+            .add_keyword('zone', 'seq')
 
         return [{
             "type": iRODSCollection,
@@ -141,9 +154,14 @@ def search_collection(q, config={}):
 
 def search_collection_metadata(q, config={}):
     print("Search::CollectionMeta", q)
-    with new_session(config) as session:    
-        query = session.query(Collection, CollectionMeta).filter(Criterion('=', CollectionMeta.name, q['name'])).filter(Criterion('=', CollectionMeta.value, q['value']))
-        #query = session.query(Collection, CollectionMeta).filter(Criterion('=', CollectionMeta.name, q['name'])).filter(Criterion('like', CollectionMeta.value, '%{}%'.format(q['value'])))
+    with new_session(config) as session:
+        query = session.query(Collection, CollectionMeta) \
+            .add_keyword('zone', 'seq')
+
+        for k in q:
+            query = query.filter(Criterion('=', CollectionMeta.name, k)) \
+                .filter(Criterion('=', CollectionMeta.value, q[k]))
+ 
         return [{
             "type": iRODSCollection,
             "id": result[Collection.id],
